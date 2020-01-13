@@ -4,6 +4,5 @@ import { Queue, Job } from './queue'
 export {
   setupTables,
   dropTables,
-  Queue,
-  Job
+  Queue
 }
