@@ -12,8 +12,8 @@ export interface TableOptions {
  */
 export async function setupTables (knex: Knex, options?: Partial<TableOptions>): Promise<any> {
   const newOptions = Object.assign({
-    tableName: 'loqueue',
-    resultTableName: 'loqueue_results'
+    tableName: 'postqueue',
+    resultTableName: 'postqueue_results'
   }, options)
   await knex.schema.createTable(newOptions.tableName, tbl => {
     tbl.increments('id')
@@ -38,8 +38,8 @@ export async function setupTables (knex: Knex, options?: Partial<TableOptions>):
  */
 export async function dropTables (knex: Knex, options?: Partial<TableOptions>): Promise<any> {
   const newOptions = Object.assign({
-    tableName: 'loqueue',
-    resultTableName: 'loqueue_results'
+    tableName: 'postqueue',
+    resultTableName: 'postqueue_results'
   }, options)
   await knex.schema.dropTable(newOptions.resultTableName)
   await knex.schema.dropTable(newOptions.tableName)

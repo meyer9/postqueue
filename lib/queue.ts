@@ -2,7 +2,7 @@ import * as Knex from 'knex'
 import { TableOptions } from './migrations'
 import Debug from 'debug'
 
-const debug = Debug('loqueue:queue')
+const debug = Debug('postqueue:queue')
 
 interface JobOptions {
   deleteOnAcknowledged?: boolean;
@@ -78,8 +78,8 @@ export class Queue {
     this.name = name
     this.knex = knex
     const opts = Object.assign({
-      tableName: 'loqueue',
-      resultTableName: 'loqueue_results',
+      tableName: 'postqueue',
+      resultTableName: 'postqueue_results',
       pollInterval: 1000
     }, options)
 

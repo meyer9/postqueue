@@ -1,17 +1,17 @@
-# loqueue
+# postqueue
 
-loqueue is a simple postgres-backed queue. Currently, it can process about 1360 jobs per second with a tiny bit of overhead.
+postqueue is a simple postgres-backed queue. Currently, it can process about 1360 jobs per second with a tiny bit of overhead.
 
 ## Installation
 
 ```bash
-yarn add loqueue
+yarn add postqueue
 ```
 
 ## Usage
 
 ```javascript
-const { Queue } = require('loqueue')
+const { Queue } = require('postqueue')
 const Knexfile = require('./knexfile')
 const knex = require('knex')
 
