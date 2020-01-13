@@ -11,7 +11,7 @@ yarn add loqueue
 ## Usage
 
 ```javascript
-const { Queue } = require('../dist')
+const { Queue } = require('loqueue')
 const Knexfile = require('./knexfile')
 const knex = require('knex')
 
