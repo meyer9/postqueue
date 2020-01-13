@@ -5,6 +5,11 @@ export interface TableOptions {
   resultTableName: string;
 }
 
+/**
+ * Sets up tables in a PostgreSQL database.
+ * @param knex Knex instance to use to setup tables.
+ * @param options Specifies table names and other options
+ */
 export async function setupTables (knex: Knex, options?: Partial<TableOptions>): Promise<any> {
   const newOptions = Object.assign({
     tableName: 'loqueue',
@@ -26,6 +31,11 @@ export async function setupTables (knex: Knex, options?: Partial<TableOptions>):
   })
 }
 
+/**
+ * Drops tables from PostgreSQL database.
+ * @param knex Knex instance to use to drop tables
+ * @param options Specifies table names
+ */
 export async function dropTables (knex: Knex, options?: Partial<TableOptions>): Promise<any> {
   const newOptions = Object.assign({
     tableName: 'loqueue',

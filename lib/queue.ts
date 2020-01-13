@@ -9,11 +9,15 @@ interface JobOptions {
   everySecs?: number;
 }
 
+/**
+ * Represents a single or recurring job by ID.
+ */
 export class Job {
   id: number
   knex: Knex;
   tableOptions: TableOptions;
   pollMs: number;
+
   constructor (id: number, knex: Knex, tableOptions: TableOptions, pollMs: number) {
     this.id = id
     this.knex = knex
@@ -21,6 +25,9 @@ export class Job {
     this.pollMs = pollMs
   }
 
+  /**
+   * Waits for a job to complete (only applicable to non-recurring jobs)
+   */
   async done (): Promise<any> {
     return new Promise((resolve, reject) => {
       const int = setInterval(async () => {
@@ -44,6 +51,9 @@ export class Job {
     })
   }
 
+  /**
+   * Removes job from queue
+   */
   async remove (): Promise<void> {
     await this.knex.delete()
       .where({ id: this.id })
@@ -55,6 +65,9 @@ export interface QueueOptions extends TableOptions {
   pollInterval: number;
 }
 
+/**
+ * This represents a single queue.
+ */
 export class Queue {
   name: string
   knex: Knex
@@ -78,6 +91,11 @@ export class Queue {
     this.pollInterval = opts.pollInterval
   }
 
+  /**
+   * Adds a single or recurring job to the queue
+   * @param data Job data
+   * @param options Job options
+   */
   async add (data: any, options?: JobOptions): Promise<Job> {
     const opts = Object.assign({
       everySecs: undefined,
@@ -102,10 +120,18 @@ export class Queue {
     return new Job(id[0], this.knex, this.tableOptions, this.pollInterval)
   }
 
+  /**
+   * Gets a Job object from the queue.
+   * @param id Job ID number
+   */
   getJob (id: number): Job {
     return new Job(id, this.knex, this.tableOptions, this.pollInterval)
   }
 
+  /**
+   * Process runs the queue and processes jobs.
+   * @param cb Callback to handle a job. Return value should be job result.
+   */
   process (cb: (j: Job) => Promise<any>): void {
     const knex = this.knex
 
@@ -128,10 +154,6 @@ export class Queue {
 
         if (jobs.length > 0) {
           const job = jobs[0]
-          // next_run = last_run + interval
-          // next_run < NOW()
-          // last_run + interval < NOW()
-          // last_run < NOW() + interval
 
           debug(`acquired lock for job ${job.id}`)
 

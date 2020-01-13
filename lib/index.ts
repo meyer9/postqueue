@@ -1,5 +1,5 @@
 import { setupTables, dropTables } from './migrations'
-import { Queue, Job } from './queue'
+import { Queue } from './queue'
 
 export {
   setupTables,
