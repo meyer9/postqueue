@@ -1,8 +1,9 @@
 import { setupTables, dropTables } from './migrations'
-import { Queue } from './queue'
+import { Queue, Job } from './queue'
 
 export {
   setupTables,
   dropTables,
-  Queue
+  Queue,
+  Job
 }

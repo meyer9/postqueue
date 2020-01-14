@@ -14,21 +14,29 @@ interface JobOptions {
  */
 export class Job {
   id: number
-  knex: Knex;
-  tableOptions: TableOptions;
-  pollMs: number;
 
-  constructor (id: number, knex: Knex, tableOptions: TableOptions, pollMs: number) {
+  private knex: Knex;
+  private tx?: Knex.Transaction;
+  private tableOptions: TableOptions;
+  private pollMs: number;
+
+  data: any;
+
+  constructor (id: number, knex: Knex, tableOptions: TableOptions, pollMs: number, tx?: Knex.Transaction) {
     this.id = id
     this.knex = knex
     this.tableOptions = tableOptions
     this.pollMs = pollMs
+    this.tx = tx
   }
 
   /**
    * Waits for a job to complete (only applicable to non-recurring jobs)
    */
   async done (): Promise<any> {
+    if (this.tx) {
+      throw new Error('Can\'t wait for job to finish inside processing function')
+    }
     return new Promise((resolve, reject) => {
       const int = setInterval(async () => {
         const res = await this.knex.delete()
@@ -55,9 +63,15 @@ export class Job {
    * Removes job from queue
    */
   async remove (): Promise<void> {
-    await this.knex.delete()
-      .where({ id: this.id })
-      .from(this.tableOptions.tableName)
+    if (this.tx) {
+      await this.tx.delete()
+        .where({ id: this.id })
+        .from(this.tableOptions.tableName)
+    } else {
+      await this.knex.delete()
+        .where({ id: this.id })
+        .from(this.tableOptions.tableName)
+    }
   }
 }
 
@@ -73,10 +87,12 @@ export class Queue {
   knex: Knex
   tableOptions: TableOptions;
   pollInterval: number;
+  shouldProcess: boolean;
 
   constructor (name: string, knex: Knex, options?: Partial<QueueOptions>) {
     this.name = name
     this.knex = knex
+    this.shouldProcess = true
     const opts = Object.assign({
       tableName: 'postqueue',
       resultTableName: 'postqueue_results',
@@ -134,10 +150,11 @@ export class Queue {
    */
   process (cb: (j: Job) => Promise<any>): void {
     const knex = this.knex
+    this.shouldProcess = true
 
     const toRun = () => {
       knex.transaction(async trx => {
-        const q = trx
+        const jobs = await trx
           .select(knex.raw('*'))
           .forUpdate()
           .skipLocked()
@@ -148,7 +165,6 @@ export class Queue {
             this.where('last_run', '<', knex.raw('NOW() - every_secs * interval \'1 seconds\''))
             this.orWhereNull('every_secs')
           })
-        const jobs = await q
 
         debug(`got ${jobs.length} jobs`)
 
@@ -157,11 +173,15 @@ export class Queue {
 
           debug(`acquired lock for job ${job.id}`)
 
-          const out = await cb(job.input_data)
+          const jobPassed = new Job(job.id, knex, this.tableOptions, this.pollInterval, trx)
+          jobPassed.data = job.input_data
+
+          const out = await cb(jobPassed)
 
           debug(`finished job ${job.id}, releasing lock`)
 
           if (job.every_secs) {
+            debug('updating last run')
             await trx.update({
               last_run: knex.raw(`
               CASE WHEN (last_run + every_secs * interval \'1 seconds\' > NOW() - every_secs * interval \'1 seconds\') THEN
@@ -173,23 +193,35 @@ export class Queue {
             }).into(this.tableOptions.tableName)
           } else {
             if (!job.delete_on_acknowledged) { // delete_on_acknowledged == false implies they are expecting ack
+              debug('adding result')
               await trx.insert({
                 job_id: job.id,
                 result: out,
                 time_run: new Date()
               }).into(this.tableOptions.resultTableName)
             }
+            debug('deleting job')
             await trx.delete().where({
               id: job.id
             }).from(this.tableOptions.tableName)
           }
 
-          setImmediate(toRun)
+          await trx.commit()
+
+          if (this.shouldProcess) {
+            setImmediate(toRun)
+          }
         } else {
-          setTimeout(toRun, this.pollInterval)
+          if (this.shouldProcess) {
+            setTimeout(toRun, this.pollInterval)
+          }
         }
       })
     }
     setImmediate(toRun)
+  }
+
+  shutdown () {
+    this.shouldProcess = false
   }
 }
