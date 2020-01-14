@@ -1,6 +1,6 @@
 {
   "name": "postqueue",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Simple, powerful postgres-backed queue",
   "repository": "https://github.com/meyer9/postqueue",
   "author": "meyer9 <julianmeyer2000@gmail.com>",
