@@ -5,7 +5,7 @@ const knex = require('knex')
 const TestQueue = new Queue('test-queue', knex(Knexfile['development']))
 
 TestQueue.process(async (j) => {
-  console.log(`processing: ${JSON.stringify(j)}`)
+  console.log(`processing: ${JSON.stringify(j.data)}`)
   return {
     gotback: 'data'
   }
