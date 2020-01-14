@@ -169,67 +169,77 @@ export class Queue {
 
     const toRun = () => {
       knex.transaction(async trx => {
-        const jobs = await trx
-          .select(knex.raw('*'))
-          .forUpdate()
-          .skipLocked()
-          .from(this.tableOptions.tableName)
-          .limit(1)
-          .where('queue_name', this.name)
-          .andWhere(function () {
-            this.where('last_run', '<', knex.raw('NOW() - every_secs * interval \'1 seconds\''))
-            this.orWhereNull('every_secs')
-          })
+        try {
+          const jobs = await trx
+            .select(knex.raw('*'))
+            .forUpdate()
+            .skipLocked()
+            .from(this.tableOptions.tableName)
+            .limit(1)
+            .where('queue_name', this.name)
+            .andWhere(function () {
+              this.where('last_run', '<', knex.raw('NOW() - every_secs * interval \'1 seconds\''))
+              this.orWhereNull('every_secs')
+            })
 
-        debug(`got ${jobs.length} jobs`)
+          debug(`got ${jobs.length} jobs`)
 
-        if (jobs.length > 0) {
-          const job = jobs[0]
+          if (jobs.length > 0) {
+            const job = jobs[0]
 
-          debug(`acquired lock for job ${job.id}`)
+            debug(`acquired lock for job ${job.id}`)
 
-          const jobPassed = new Job(job.id, knex, this.tableOptions, this.pollInterval, trx)
-          jobPassed.data = job.input_data
+            const jobPassed = new Job(job.id, knex, this.tableOptions, this.pollInterval, trx)
+            jobPassed.data = job.input_data
 
-          const out = await cb(jobPassed)
+            const out = await cb(jobPassed)
 
-          debug(`finished job ${job.id}, releasing lock`)
+            debug(`finished job ${job.id}, releasing lock`)
 
-          if (job.every_secs) {
-            debug('updating last run')
-            await trx.update({
-              last_run: knex.raw(`
-              CASE WHEN (last_run + every_secs * interval \'1 seconds\' > NOW() - every_secs * interval \'1 seconds\') THEN
-                last_run + every_secs * interval \'1 seconds\'
-                ELSE NOW()
-              END`)
-            }).where({
-              id: job.id
-            }).into(this.tableOptions.tableName)
-          } else {
-            if (!job.delete_on_acknowledged) { // delete_on_acknowledged == false implies they are expecting ack
-              debug('adding result')
-              await trx.insert({
-                job_id: job.id,
-                result: out,
-                time_run: new Date()
-              }).into(this.tableOptions.resultTableName)
+            if (job.every_secs) {
+              debug('updating last run')
+              await trx.update({
+                last_run: knex.raw(`
+                CASE WHEN (last_run + every_secs * interval \'1 seconds\' > NOW() - every_secs * interval \'1 seconds\') THEN
+                  last_run + every_secs * interval \'1 seconds\'
+                  ELSE NOW()
+                END`)
+              }).where({
+                id: job.id
+              }).into(this.tableOptions.tableName)
+            } else {
+              if (!job.delete_on_acknowledged) { // delete_on_acknowledged == false implies they are expecting ack
+                debug('adding result')
+                await trx.insert({
+                  job_id: job.id,
+                  result: out,
+                  time_run: new Date()
+                }).into(this.tableOptions.resultTableName)
+              }
+              debug('deleting job')
+              await trx.delete().where({
+                id: job.id
+              }).from(this.tableOptions.tableName)
             }
-            debug('deleting job')
-            await trx.delete().where({
-              id: job.id
-            }).from(this.tableOptions.tableName)
-          }
 
-          await trx.commit()
+            await trx.commit()
 
-          if (this.shouldProcess) {
-            setImmediate(toRun)
+            if (this.shouldProcess) {
+              setImmediate(toRun)
+            }
+          } else {
+            if (this.shouldProcess) {
+              setTimeout(toRun, this.pollInterval)
+            }
           }
-        } else {
+        } catch (err) {
+          debug(`caught error: ${err.message}`)
+
           if (this.shouldProcess) {
             setTimeout(toRun, this.pollInterval)
           }
+
+          throw err
         }
       })
     }

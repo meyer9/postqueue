@@ -78,6 +78,36 @@ describe('queue', () => {
     })()
   }).timeout(5000)
 
+  it('should continue processing after error', (done) => {
+    (async () => {
+      const q = new Queue('test-queue', db)
+
+      let triggered = 0
+
+      for (let i = 0; i < 100; i++) {
+        await q.add({
+          test: 'hello-world'
+        })
+      }
+
+      q.process(async (j: Job) => {
+        expect(j.data).to.not.be.equal(null)
+        expect(j.data.test).to.be.equal('hello-world')
+        triggered++
+
+        if (triggered === 20) {
+          throw new Error('unhandled error')
+        }
+
+        if (triggered === 100) {
+          q.shutdown()
+          done()
+        }
+        return null
+      })
+    })()
+  })
+
   after(() => {
     setImmediate(() => {
       db.destroy()
