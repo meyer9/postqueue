@@ -1,5 +1,7 @@
 # postqueue
 
+[![Build Status](https://travis-ci.com/meyer9/postqueue.svg?branch=master)](https://travis-ci.com/meyer9/postqueue)
+
 postqueue is a simple postgres-backed queue. Currently, it can process about 1360 jobs per second with a tiny bit of overhead.
 
 ## Installation
