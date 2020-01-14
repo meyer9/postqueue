@@ -11,6 +11,13 @@ interface JobOptions {
 
 /**
  * Represents a single or recurring job by ID.
+ * @property {number} id Job ID number
+ * @property {object} data Job data
+ * @param {number} id ID number of job
+ * @param {Knex} knex Knex instance to use
+ * @param {TableOptions} tableOptions Table options including names
+ * @param {number} pollMs Poll interval
+ * @param {Knex.Transaction} tx Transaction if applicable (inside processing function)
  */
 export class Job {
   id: number
@@ -22,6 +29,10 @@ export class Job {
 
   data: any;
 
+  /**
+   * Please use Queue.getJob(jobID) to get a job. This constructor is
+   * for internal use only.
+   */
   constructor (id: number, knex: Knex, tableOptions: TableOptions, pollMs: number, tx?: Knex.Transaction) {
     this.id = id
     this.knex = knex
@@ -81,13 +92,15 @@ export interface QueueOptions extends TableOptions {
 
 /**
  * This represents a single queue.
+ * @param {object} data Job data
+ * @param {TableOptions} options Job options
  */
 export class Queue {
-  name: string
-  knex: Knex
-  tableOptions: TableOptions;
-  pollInterval: number;
-  shouldProcess: boolean;
+  private name: string
+  private knex: Knex
+  private tableOptions: TableOptions;
+  private pollInterval: number;
+  private shouldProcess: boolean;
 
   constructor (name: string, knex: Knex, options?: Partial<QueueOptions>) {
     this.name = name
@@ -109,8 +122,9 @@ export class Queue {
 
   /**
    * Adds a single or recurring job to the queue
-   * @param data Job data
-   * @param options Job options
+   * @param {object} data Job data to be passed to the processing function
+   * @param {JobOptions} options Job options for configuring repeat and output handling
+   * @returns {Job} Created job
    */
   async add (data: any, options?: JobOptions): Promise<Job> {
     const opts = Object.assign({
@@ -138,7 +152,8 @@ export class Queue {
 
   /**
    * Gets a Job object from the queue.
-   * @param id Job ID number
+   * @param {number} id Job ID number
+   * @returns {Job} Job retrieved
    */
   getJob (id: number): Job {
     return new Job(id, this.knex, this.tableOptions, this.pollInterval)
@@ -146,7 +161,7 @@ export class Queue {
 
   /**
    * Process runs the queue and processes jobs.
-   * @param cb Callback to handle a job. Return value should be job result.
+   * @param {Function} cb Callback to handle a job. Return value should be job result.
    */
   process (cb: (j: Job) => Promise<any>): void {
     const knex = this.knex

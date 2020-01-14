@@ -46,6 +46,10 @@ TestQueue.process(async (j) => {
 })()
 ```
 
+## Reference
+
+[API Docs](API.md)
+
 ## Migrations
 
 Migrations can be done using `setupTables` and `dropTables`:
